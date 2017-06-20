@@ -14,15 +14,13 @@ class MasterViewController: UITableViewController {
     var realm : Realm!
     @IBOutlet weak var addButton: UIBarButtonItem!
     
-    var remindersList: Results<Reminder> {     //we are lazy-calling Reminder objects
-        get {
-            return try! Realm().objects(Reminder.self)
-        }
-    }
+    var remindersList = List<Reminder>()
 
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
+        
         // Do any additional setup after loading the view, typically from a nib.
             realm = try! Realm()
     }
@@ -115,12 +113,8 @@ extension MasterViewController{
             reminderItem.done = false
             
             // We are adding the reminder to our database
-            try! self.realm.write({
-                self.realm.add(reminderItem)
-                
-                self.tableView.insertRows(at: [IndexPath.init(row: self.remindersList.count-1, section: 0)], with: .automatic)
-            })
-            
+            self.remindersList.append(reminderItem)
+            self.tableView.reloadData()
         }
         
         alertVC.addAction(addAction)
