@@ -10,41 +10,53 @@ import UIKit
 import RealmSwift
 
 class MasterViewController: UITableViewController {
-
+    
     var realm : Realm!
+    var notificationToken: NotificationToken?
+    
     @IBOutlet weak var addButton: UIBarButtonItem!
     
-    var remindersList = List<Reminder>()
-
-
+    var remindersList: Results<Reminder> {     //we are lazy-calling Reminder objects
+        get {
+            return try! Realm().objects(Reminder.self)
+        }
+    }
+    
+    
     override func viewDidLoad() {
         super.viewDidLoad()
-        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
-        
         // Do any additional setup after loading the view, typically from a nib.
-            realm = try! Realm()
+        realm = try! Realm()
+        
+        // Set realm notification block
+        notificationToken = realm.addNotificationBlock { [unowned self] reminder, realm in
+            self.tableView.reloadData()
+        }
+        
+        
+        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
     }
-
+    
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
     }
-
+    
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.
     }
-
-
+    
+    
     // MARK: - Table View
-
+    
     override func numberOfSections(in tableView: UITableView) -> Int {
         return 1
     }
-
+    
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return remindersList.count
     }
-
+    
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "Cell", for: indexPath)
         
@@ -55,9 +67,9 @@ class MasterViewController: UITableViewController {
         
         return cell
     }
-
+    
     override func tableView(_ tableView: UITableView,
-                   didSelectRowAt indexPath: IndexPath) {
+                            didSelectRowAt indexPath: IndexPath) {
         
         let item = remindersList[indexPath.row]
         try! self.realm.write({
@@ -82,12 +94,10 @@ class MasterViewController: UITableViewController {
                 self.realm.delete(item)
             })
             
-            tableView.deleteRows(at:[indexPath], with: .automatic)
-            
         }
         
     }
- 
+    
 }
 
 extension MasterViewController{
@@ -113,8 +123,9 @@ extension MasterViewController{
             reminderItem.done = false
             
             // We are adding the reminder to our database
-            self.remindersList.append(reminderItem)
-            self.tableView.reloadData()
+            try! self.realm.write{
+                self.realm.create(Reminder.self, value: reminderItem)
+            }
         }
         
         alertVC.addAction(addAction)
