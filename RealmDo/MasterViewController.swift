@@ -12,33 +12,60 @@ import RealmSwift
 class MasterViewController: UITableViewController {
     
     var realm : Realm!
-    var notificationToken: NotificationToken?
+    var notificationToken: NotificationToken!
     
     @IBOutlet weak var addButton: UIBarButtonItem!
     
-    var remindersList: Results<Reminder> {     //we are lazy-calling Reminder objects
-        get {
-            return try! Realm().objects(Reminder.self)
-        }
-    }
-    
+    var remindersList = List<Reminder>()
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do any additional setup after loading the view, typically from a nib.
-        realm = try! Realm()
-        
-        // Set realm notification block
-        notificationToken = realm.addNotificationBlock { [unowned self] reminder, realm in
-            self.tableView.reloadData()
-        }
-        
         
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
+        
+        // You should make the username and password user-input supported
+        SyncUser.logIn(with: .usernamePassword(username: "doron@doronkatz.com", password: "test123", register: false), server: URL(string: "http://127.0.0.1:9080")!) { user, error in
+            guard let user = user else {
+                fatalError(String(describing: error))
+            }
+            
+            DispatchQueue.main.async(execute: {
+                // Open Realm
+                let configuration = Realm.Configuration(
+                    syncConfiguration: SyncConfiguration(user: user, realmURL: URL(string: "realm://127.0.0.1:9080/~/realmDoApp")!)
+                )
+                self.realm = try! Realm(configuration: configuration)
+                // Set realm notification block
+                
+                
+                self.notificationToken = self.realm.addNotificationBlock{ _ in
+                    self.updateRemindersList()
+                }
+                self.updateRemindersList()
+            })
+        }
+        
+
+    }
+    
+    
+    func updateRemindersList(){
+        if self.remindersList.realm == nil{
+            self.remindersList = self.realm.objects(Reminder.self).reduce(List<Reminder>()) { (list, element) -> List<Reminder> in
+                list.append(element)
+                return list
+            }
+
+        }
+        self.tableView.reloadData()
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+    }
+    
+    deinit {
+        notificationToken.stop()
     }
     
     override func didReceiveMemoryWarning() {
@@ -123,8 +150,8 @@ extension MasterViewController{
             reminderItem.done = false
             
             // We are adding the reminder to our database
-            try! self.realm.write{
-                self.realm.create(Reminder.self, value: reminderItem)
+            try! self.realm?.write {
+                self.realm.add(reminderItem)
             }
         }
         
@@ -134,4 +161,3 @@ extension MasterViewController{
         
     }
 }
-
